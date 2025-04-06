@@ -45,20 +45,23 @@ namespace Congratulations
             Service.PluginInterface.UiBuilder.Draw += DrawUserInterface;
             Service.PluginInterface.UiBuilder.OpenConfigUi += DrawConfigWindow;
 
-            Service.ClientState.TerritoryChanged += OnTerritoryChange;
-            Service.Framework.Update += OnUpdate;
             Service.ClientState.Login += OnLogin;
             Service.ClientState.Logout += OnLogout;
 
-            if (Service.ClientState.IsLoggedIn)
+            Service.Framework.RunOnFrameworkThread(() =>
             {
-                OnLogin();
-            }
+                if (Service.ClientState.IsLoggedIn)
+                {
+                    OnLogin();
+                }
+            });
+
         }
 
         private void OnLogout(int type, int code)
         {
-            onLoginRan = false;
+            Service.ClientState.TerritoryChanged -= OnTerritoryChange;
+            Service.Framework.Update -= OnUpdate;
         }
 
         private void OnLogin()
@@ -70,13 +73,14 @@ namespace Congratulations
             lastAreaPartySize = currentPartySize;
             largestPartySize = currentPartySize;
             Service.PluginLog.Debug("Starting party size: {0}", largestPartySize);
-            onLoginRan = true;
+
+            Service.ClientState.TerritoryChanged += OnTerritoryChange;
+            Service.Framework.Update += OnUpdate;
         }
 
         //Called each frame or something?
         private void OnUpdate(IFramework framework)
         {
-            if (!Service.ClientState.IsLoggedIn || !onLoginRan) return;
             currentPartySize = GetCurrentPartySize();
             // If the current party size is bigger than it was last update, we update the largest party size
             if (currentPartySize > largestPartySize)
@@ -91,7 +95,6 @@ namespace Congratulations
         // weird logic that happens here.
         private void OnTerritoryChange(ushort @ushort)
         {
-            if (!Service.ClientState.IsLoggedIn || !onLoginRan) return;
             Service.PluginLog.Debug("territory changed");
             var currentCommendationCount = GetCurrentCommendationCount();
 
@@ -170,6 +173,7 @@ namespace Congratulations
             Service.ClientState.TerritoryChanged -= OnTerritoryChange;
             Service.Framework.Update -= OnUpdate;
             Service.ClientState.Login -= OnLogin;
+            Service.ClientState.Logout -= OnLogout;
         }
 
         private void OnConfigCommand(string command, string args)
